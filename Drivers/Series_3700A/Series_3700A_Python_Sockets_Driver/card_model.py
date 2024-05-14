@@ -17,7 +17,10 @@ class GenericModel():
 
     def parser(func):
         def wrapper(self, *args, **kwargs):
-            # print(args)
+            if self.__class__.__name__ == "Model_3732_4B":
+                multiplier = 10_000
+            else:
+                multiplier = 1_000
             if len(args) > 1:  # Range
                 if len(args) > 2:
                     print("Unsupported format of data: more than 2 arguments. Check GenericModel")
@@ -28,18 +31,18 @@ class GenericModel():
                 elif func.__name__ == "close":
                     for i in range(args[0], args[1]+1):
                         self.channels[i] = True
-                func(self, str(self.slot*1000 + args[0]) + ":" + str(self.slot*1000 + args[1]))
+                func(self, str(self.slot*multiplier + args[0]) + ":" + str(self.slot*multiplier + args[1]))
             elif len(args) == 1:
                 if isinstance(args[0], int):
                     if func.__name__ == "open":
                         self.channels[args[0]] = False
                     elif func.__name__ == "close":
                         self.channels[args[0]] = True
-                    func(self, str(self.slot*1000 + args[0]))
+                    func(self, str(self.slot*multiplier + args[0]))
                 elif isinstance(args[0], list):
                     channels = str()
                     for ch in args[0]:
-                        channels += (str(self.slot * 1000 + ch)+", ")
+                        channels += (str(self.slot * multiplier + ch)+", ")
                         if func.__name__ == "open":
                             self.channels[ch] = False
                         elif func.__name__ == "close":
@@ -95,9 +98,161 @@ class GenericDual(GenericModel):
 
 
 class GenericMatrix(GenericModel):
-    pass
+    '''
+    rows_nb, cols_nb: number of rows and columns per single bank
+    allow_sc: list of bool pairs. Single pair: allow short circuit on rows, on columns. Number of pairs = number of banks
+    '''
+    def __init__(self, controller, slot, banks_nb, rows_nb, cols_nb, allow_sc):
+        # channel numbers
+        GenericModel.__init__(self, controller, slot)
+        channel_numbers = [bank * 1000 + row * 100 + col for bank in range(1, banks_nb+1)
+                                                          for row in range(1, rows_nb+1)
+                                                         for col in range(1, cols_nb+1)]
+        self.channels = ClosedDict({i: False for i in channel_numbers})
+        self.allow_sc = allow_sc
+        self.rows_nb = rows_nb
+        self.cols_nb = cols_nb
 
-class Model_3732_2P(GenericDual):
+
+class Model_3732_4B(GenericMatrix):
+    def __init__(self, controller, slot, allow_sc):
+        GenericMatrix.__init__(self, controller, slot, 4, 4, 28, allow_sc)
+        backplane_channels = ClosedDict({i: False for i in range(10911, 10919)})
+        self.channels.update(backplane_channels)
+
+    @staticmethod
+    def channel_number(bank, row, col):
+        return bank * 1000 + row * 100 + col
+
+    def open_bank(self, bank):
+        channels = [bank * 1000 + row * 100 + col for row in range(1,5) for col in range(1,29)]
+        self.open(channels)
+
+    def open_backplane(self, forbid=True):
+        self.open(10911, 10918)
+        if forbid:
+            self.set_forbidden(10911, 10918)
+
+    def open_all(self):
+        for i in range(4):
+            self.open_bank(i+1)
+        self.open_backplane()
+
+    '''
+       Change active channel. Requires exactly 0 or 1 channel already closed which cannot be closed parallel 
+       with new one. Method will open it and close new channel given in argument.
+       '''
+
+    def switch(self, bank, row, column):
+        self.switch_channel(self.channel_number(bank, row, column))
+
+    def switch_channel(self, channel):
+        # check if argument is single channel
+        if not isinstance(channel, int):
+            print("switch_channel method takes only int argument")
+            exit(1)
+        active_channel = list()
+        # If check for active channel to open it
+        col = channel % 100
+        row = channel % 1000 // 100
+        bank = channel // 1000
+        # backplane switch
+        if bank == 0:
+            print("WARNING: switching backplane channel will open all other backplane channels.")
+            self.controller.open_all_backplanes()
+            self.clear_forbidden(channel)
+            super().close(channel)
+            return
+        else:
+            # check row short circuits:
+            if not self.allow_sc[bank][0]:
+                for i in range(1, self.cols_nb + 1):
+                    if self.channels[self.channel_number(bank=bank, row=row, col=i)]:
+                        active_channel.append(self.channel_number(bank= bank, row=row, col=i))
+            # check col short circuits:
+            if not self.allow_sc[bank][1]:
+                for i in range(1, self.rows_nb + 1):
+                    if self.channels[self.channel_number(bank=bank, row=i, col=col)]:
+                        active_channel.append(self.channel_number(bank= bank, row=i, col=col))
+        # Switch function works only as: open one, close another   OR nothing to open, close one
+        if len(active_channel) > 1:
+            print("switch_channel: exactly one channel should be already active. Current active channels: {}".format(
+                active_channel))
+            exit(1)
+
+        # Open previous channel
+        if len(active_channel) == 1:
+            self.open(active_channel[0])
+            # Set old channel forbidden to close and clear forbidden for new one
+            self.set_forbidden(active_channel[0])
+        # There is no active channel: whole row/column in bank should be forbidden
+        else:
+            to_be_forbidden = list()
+            # add forbidden switches in row
+            if not self.allow_sc[bank][0]:
+                for i in range(1, self.cols_nb + 1):
+                    to_be_forbidden.append(self.channel_number(bank=bank, row=row, col=i))
+            if not self.allow_sc[bank][1]:
+                for i in range(1, self.rows_nb + 1):
+                    to_be_forbidden.append(self.channel_number(bank=bank, row=i, col=col))
+            to_be_forbidden.remove(channel)
+            self.set_forbidden(to_be_forbidden)
+        self.clear_forbidden(channel)
+        # Close new channel, use GenericModel method - safety has already been checked
+        super().close(channel)
+
+    def close(self, channels):
+        '''
+        Method closes channel or channels (if it is possible - method will check permission - not supported for backplane switches)
+        Args:
+            channels: int or list of ints with number of channels to close (without slot number).
+
+        Returns:
+
+        '''
+        if isinstance(channels, int):
+            channels = [channels]
+        for channel in channels:
+            col = channel % 100
+            row = channel % 1000 // 100
+            bank = channel // 1000
+            # backplane switch
+            if bank == 0:
+                modify_forbidden = False
+            else:
+                modify_forbidden = False
+                # check row short circuits:
+                if not self.allow_sc[bank][0]:
+                    modify_forbidden = True
+                    for i in range(1, self.cols_nb+1):
+                        if self.channels[self.channel_number(bank=bank, row=row, col=i)]:
+                            raise (PermissionError("Another channel already closed - forbidden to close this channel"))
+                # check col short circuits:
+                if not self.allow_sc[bank][1]:
+                    modify_forbidden = True
+                    for i in range(1, self.rows_nb+1):
+                        if self.channels[self.channel_number(bank=bank, row=i, col=col)]:
+                            raise (PermissionError("Another channel already closed - forbidden to close this channel"))
+
+            self.channels[channel] = True # change value here (not at the close) to proper check next channels
+            # Block all other switches in bank if short circuit not allowed:
+            if modify_forbidden:
+                to_be_forbidden = list()
+                #add forbidden switches in row
+                if not self.allow_sc[bank][0]:
+                    for i in range(1, self.cols_nb + 1):
+                        to_be_forbidden.append(self.channel_number(bank=bank, row=row, col=i))
+                if not self.allow_sc[bank][1]:
+                    for i in range(1, self.rows_nb + 1):
+                        to_be_forbidden.append(self.channel_number(bank=bank, row=i, col=col))
+                to_be_forbidden.remove(channel)
+                self.set_forbidden(to_be_forbidden)
+        super().close(channels)
+
+
+
+
+class Model_3723_2B(GenericDual):
     first_channel = 1
     last_channel = 60
     first_backplane_channel = 911
@@ -132,10 +287,10 @@ class Model_3732_2P(GenericDual):
         self.open_backplane()
 
     '''
-    Use this method to change active channel. Requires exactly 1 channel already closed which cannot be closed parallel 
+    Change active channel. Requires exactly 0 or 1 channel already closed which cannot be closed parallel 
     with new one. Method will open it and close new channel given in argument.
     '''
-    def switch_channel(self, channel):
+    def switch(self, channel):
         # check if argument is single channel
         if not isinstance(channel, int):
             print("switch_channel method takes only int argument")
@@ -187,7 +342,7 @@ class Model_3732_2P(GenericDual):
         super().close(channel)
 
     '''
-    Use this method to simply close channel or channels (if it possible - method will check permission)
+    Method closes channel or channels (if it is possible - method will check permission - not supported for backplane switches)
     '''
     def close(self, channels):
         if isinstance(channels, int):
