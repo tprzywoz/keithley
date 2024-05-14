@@ -8,10 +8,18 @@ from enum import Enum
 #      DEFINE THE DMM CLASS INSTANCE HERE
 # ======================================================================
 class KEI3706A:
-    def __init__(self):
-        self.echoCmd = 1
+    def __init__(self, echo=1, stub=0):
+        self.echoCmd = echo
         self.mySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.stubComms = 0
+        self.stubComms = stub
+        self.cards = dict()
+
+    def add_new_card(self, slot, card_class, *args):
+        self.cards[slot] = card_class(self, slot, *args)
+
+    def open_all_backplanes(self):
+        for card in self.cards.values():
+            card.open_backplane()
         
     # ======================================================================
     #      DEFINE INSTRUMENT CONNECTION AND COMMUNICATIONS FUNCTIONS HERE
@@ -92,6 +100,12 @@ class KEI3706A:
         # first parameter is always a channel list string
         self.SendCmd("channel.open(\"{}\")".format(args[0]))
         return
+
+    def SetForbidden(self, *args):
+        self.SendCmd("channel.setforbidden(\"{}\")".format(args[0]))
+
+    def ClearForbidden(self, *args):
+        self.SendCmd("channel.clearforbidden(\"{}\")".format(args[0]))
         
     def Set_3761_Switch_Mode(self, mySlot, myMode):
         sndBuffer = "slot[{}].voltsampsmode = {}".format(mySlot, myMode)
