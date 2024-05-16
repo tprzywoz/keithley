@@ -290,7 +290,7 @@ class Model_3723_2B(GenericDual):
     Change active channel. Requires exactly 0 or 1 channel already closed which cannot be closed parallel 
     with new one. Method will open it and close new channel given in argument.
     '''
-    def switch(self, channel):
+    def switch_channel(self, channel):
         # check if argument is single channel
         if not isinstance(channel, int):
             print("switch_channel method takes only int argument")
