@@ -151,6 +151,9 @@ class Model_3732_4B(GenericMatrix):
         if not isinstance(channel, int):
             print("switch_channel method takes only int argument")
             exit(1)
+        if self.channels[channel]:
+            print("Channel {} is already closed".format(channel))
+            return
         active_channel = list()
         # If check for active channel to open it
         col = channel % 100
@@ -165,12 +168,12 @@ class Model_3732_4B(GenericMatrix):
             return
         else:
             # check row short circuits:
-            if not self.allow_sc[bank][0]:
+            if not self.allow_sc[bank-1][0]:
                 for i in range(1, self.cols_nb + 1):
                     if self.channels[self.channel_number(bank=bank, row=row, col=i)]:
                         active_channel.append(self.channel_number(bank= bank, row=row, col=i))
             # check col short circuits:
-            if not self.allow_sc[bank][1]:
+            if not self.allow_sc[bank-1][1]:
                 for i in range(1, self.rows_nb + 1):
                     if self.channels[self.channel_number(bank=bank, row=i, col=col)]:
                         active_channel.append(self.channel_number(bank= bank, row=i, col=col))
@@ -189,10 +192,10 @@ class Model_3732_4B(GenericMatrix):
         else:
             to_be_forbidden = list()
             # add forbidden switches in row
-            if not self.allow_sc[bank][0]:
+            if not self.allow_sc[bank-1][0]:
                 for i in range(1, self.cols_nb + 1):
                     to_be_forbidden.append(self.channel_number(bank=bank, row=row, col=i))
-            if not self.allow_sc[bank][1]:
+            if not self.allow_sc[bank-1][1]:
                 for i in range(1, self.rows_nb + 1):
                     to_be_forbidden.append(self.channel_number(bank=bank, row=i, col=col))
             to_be_forbidden.remove(channel)
@@ -222,13 +225,13 @@ class Model_3732_4B(GenericMatrix):
             else:
                 modify_forbidden = False
                 # check row short circuits:
-                if not self.allow_sc[bank][0]:
+                if not self.allow_sc[bank-1][0]:
                     modify_forbidden = True
                     for i in range(1, self.cols_nb+1):
                         if self.channels[self.channel_number(bank=bank, row=row, col=i)]:
                             raise (PermissionError("Another channel already closed - forbidden to close this channel"))
                 # check col short circuits:
-                if not self.allow_sc[bank][1]:
+                if not self.allow_sc[bank-1][1]:
                     modify_forbidden = True
                     for i in range(1, self.rows_nb+1):
                         if self.channels[self.channel_number(bank=bank, row=i, col=col)]:
@@ -239,10 +242,10 @@ class Model_3732_4B(GenericMatrix):
             if modify_forbidden:
                 to_be_forbidden = list()
                 #add forbidden switches in row
-                if not self.allow_sc[bank][0]:
+                if not self.allow_sc[bank-1][0]:
                     for i in range(1, self.cols_nb + 1):
                         to_be_forbidden.append(self.channel_number(bank=bank, row=row, col=i))
-                if not self.allow_sc[bank][1]:
+                if not self.allow_sc[bank-1][1]:
                     for i in range(1, self.rows_nb + 1):
                         to_be_forbidden.append(self.channel_number(bank=bank, row=i, col=col))
                 to_be_forbidden.remove(channel)
