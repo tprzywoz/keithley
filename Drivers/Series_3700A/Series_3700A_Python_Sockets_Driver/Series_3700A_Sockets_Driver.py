@@ -8,11 +8,12 @@ from enum import Enum
 #      DEFINE THE DMM CLASS INSTANCE HERE
 # ======================================================================
 class KEI3706A:
-    def __init__(self, echo=1, stub=0):
+    def __init__(self, pwr, echo=1, stub=0):
         self.echoCmd = echo
         self.mySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.stubComms = stub
         self.cards = dict()
+        self.pwr = pwr
 
     def add_new_card(self, slot, card_class, *args):
         self.cards[slot] = card_class(self, slot, *args)
@@ -92,11 +93,13 @@ class KEI3706A:
     #      DEFINE FUNCTIONS HERE
     # ======================================================================
     def Close(self, *args):
+        self.pwr.switch_all_v(False)
         # first parameter is always a channel list string
         self.SendCmd("channel.close(\"{}\")".format(args[0]))
         return
 
     def Open(self, *args):
+        self.pwr.switch_all_v(False)
         # first parameter is always a channel list string
         self.SendCmd("channel.open(\"{}\")".format(args[0]))
         return

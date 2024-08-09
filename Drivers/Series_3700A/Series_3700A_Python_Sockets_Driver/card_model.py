@@ -288,6 +288,16 @@ class Model_3723_2B(GenericDual):
         self.open_bank0()
         self.open_bank1()
         self.open_backplane()
+        
+    def meas_dcvolts(self, channel):
+        slot = self.slot*1000
+        # self.controller.SendCmd("channel.setbackplane(\"{}\",\"{}\")".format(str(slot + channel), str(slot + 911)))
+        # self.switch_channel(911)
+        # self.controller.SendCmd("dmm.setconfig(\"{}\",\"{}\")".format(str(slot + channel), "dcvolts"))
+        # self.controller.SendCmd("BCVBuffer = dmm.makebuffer(1)")
+        # self.controller.SendCmd("dmm.measurecount = 1")
+        self.controller.SendCmd("dmm.measure(BCVBuffer)")
+        return self.controller.QueryCmd("printbuffer(1, 1, BCVBuffer)", 60)
 
     '''
     Change active channel. Requires exactly 0 or 1 channel already closed which cannot be closed parallel 
