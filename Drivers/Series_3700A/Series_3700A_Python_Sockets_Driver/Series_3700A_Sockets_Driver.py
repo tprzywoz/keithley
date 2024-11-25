@@ -8,8 +8,8 @@ from enum import Enum
 #      DEFINE THE DMM CLASS INSTANCE HERE
 # ======================================================================
 class KEI3706A:
-    def __init__(self, pwr, echo=1, stub=0):
-        self.echoCmd = echo
+    def __init__(self, pwr, logger, stub=0):
+        self.logger = logger
         self.mySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.stubComms = stub
         self.cards = dict()
@@ -45,8 +45,7 @@ class KEI3706A:
         return
 
     def SendCmd(self, cmd):
-        if self.echoCmd == 1:
-            print(cmd)
+        self.logger.debug("3700A: " + cmd)
         cmd = "{0}\n".format(cmd)
         if (self.stubComms == 0):
             self.mySocket.send(cmd.encode())
