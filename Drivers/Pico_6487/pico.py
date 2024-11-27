@@ -78,13 +78,13 @@ class PicoAmp:
         
     def set_SMU2(self, value):
         self.write("*RST")
-        self.write("SOUR:VOLT:RANG 10")
+        self.write("SOUR:VOLT:RANG 45")
         self.write("SOUR:VOLT {}".format(value))
         self.write("SOUR:VOLT:ILIM 2.5e-3")
         # input("Check output voltage")
         self.write("SOUR:VOLT:STAT ON")
         # input("Check output voltage")
-        self.write("SOUR:VOLT {}".format(value+1))
+        # self.write("SOUR:VOLT {}".format(value+1))
         # input("Check output voltage")
         
     # SMU output on/off (WARNING off means VOUT=0, not HI)
