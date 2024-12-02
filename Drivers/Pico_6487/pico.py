@@ -20,13 +20,13 @@ class PicoAmp:
         while i<=10:
             try:
                 self.ser = serial.Serial(
-                    port = "/dev/ttyUSB" + str(i),
+                    port = "/dev/ttyUSB0",# + str(i),
                     baudrate=9600,
                 )
                 self.logger.info("Pico Amp: serial open")
                 break
             except:
-                self.logger.error("Pico Amp: serial open failed {}".format(i))
+                self.logger.error("Pico Amp: serial open failed {}".format("/dev/ttyUSB" + str(i)))
                 i += 1
                 
     def verify(self):

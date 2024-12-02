@@ -117,7 +117,7 @@ class GenericMatrix(GenericModel):
 class Model_3732_4B(GenericMatrix):
     def __init__(self, controller, slot, allow_sc):
         GenericMatrix.__init__(self, controller, slot, 4, 4, 28, allow_sc)
-        backplane_channels = ClosedDict({i: False for i in range(10911, 10919)})
+        backplane_channels = ClosedDict({i: False for i in range(911, 919)})
         self.channels.update(backplane_channels)
 
     @staticmethod
@@ -129,9 +129,9 @@ class Model_3732_4B(GenericMatrix):
         self.open(channels)
 
     def open_backplane(self, forbid=True):
-        self.open(10911, 10918)
+        self.open(911, 918)
         if forbid:
-            self.set_forbidden(10911, 10918)
+            self.set_forbidden(911, 918)
 
     def open_all(self):
         for i in range(4):
@@ -266,9 +266,11 @@ class Model_3723_2B(GenericDual):
 
     def open_bank0(self):
         self.open(1, 30)
+        self.clear_forbidden(1, 30)
 
     def open_bank1(self):
         self.open(31, 60)
+        self.clear_forbidden(31, 60)
 
     def open_bank1_backplane(self, forbid=True):
         self.open(911, 916)
