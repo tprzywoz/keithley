@@ -50,10 +50,10 @@ class PicoAmp:
     def read(self, value):
         self.logger.info("PicoAmmeter: " + value)
         if not self.stub:
-            self.ser.write(value)
+            self.write(value)
             time.sleep(1)
             readout = self.ser.read_all()
-            self.logger.info("Readout: " + readout)
+            self.logger.info("Readout: " + str(readout))
             return readout
         else:
             return '0'
@@ -78,11 +78,11 @@ class PicoAmp:
         
     def set_SMU2(self, value):
         self.write("*RST")
-        self.write("SOUR:VOLT:RANG 45")
+        self.write("SOUR:VOLT:RANG 10")#TODO change to 45 after connecting hardware interlock
         self.write("SOUR:VOLT {}".format(value))
         self.write("SOUR:VOLT:ILIM 2.5e-3")
         # input("Check output voltage")
-        self.write("SOUR:VOLT:STAT ON")
+        # self.write("SOUR:VOLT:STAT ON")
         # input("Check output voltage")
         # self.write("SOUR:VOLT {}".format(value+1))
         # input("Check output voltage")
@@ -106,7 +106,7 @@ class PicoAmp:
         self.write("INIT")
         
         self.write("SYST:ZCOR:STAT OFF")
-        self.write("SOUR:VOLT:SWE:STOP {}")
+        # self.write("SOUR:VOLT:SWE:STOP {}")
         self.write("SYST:ZCOR:ACQ")
         self.write("SYST:ZCOR ON")
         
@@ -116,7 +116,11 @@ class PicoAmp:
     def meas_amp(self):
         self.prepare_meas_amp()
         self.write("SYST:ZCH OFF")
-        return self.read("READ?")
+        readout = self.read("READ?")
+        if str(readout) == "b''":    #First readout is always empty
+            return self.read("READ?")
+        else:
+            return readout
      
         
     def get_voltage(self):
